@@ -11,6 +11,7 @@ from app.db.models import Task, AgentDefinition
 from app.services.context_builder import UnifiedContextBuilder
 from app.services.nvidia import nvidia_service
 from app.services.integrations import integration_manager
+from app.services.activity_logger import log_activity
 
 async def execute_agent_task(task: Task) -> Dict[str, Any]:
     """
@@ -25,9 +26,24 @@ async def execute_agent_task(task: Task) -> Dict[str, Any]:
         
         if not agent_def:
             raise ValueError(f"Agent definition not found for role: {task.assigned_agent}")
-            
+
+        await log_activity(
+            project_id=task.project_id,
+            agent_role=task.assigned_agent,
+            activity_type="thinking",
+            message=f"Reviewing task: {task.title}",
+            task_id=task.id,
+        )
+
         # Unified company memory
         rag_query = task.description or task.title
+        await log_activity(
+            project_id=task.project_id,
+            agent_role=task.assigned_agent,
+            activity_type="thinking",
+            message="Reading company blueprint and operating memory...",
+            task_id=task.id,
+        )
         context = await UnifiedContextBuilder.build(
             db, task.project_id, rag_query=rag_query, include_rag=True
         )
@@ -38,6 +54,15 @@ async def execute_agent_task(task: Task) -> Dict[str, Any]:
         available_tools = []
         for provider in active_providers:
             available_tools.extend(provider.get_tools())
+
+        if available_tools:
+            await log_activity(
+                project_id=task.project_id,
+                agent_role=task.assigned_agent,
+                activity_type="thinking",
+                message=f"Found {len(available_tools)} connected tool(s) available for this task.",
+                task_id=task.id,
+            )
             
     # Build dynamic prompt instructions based on agent's output schema or fallback
     tool_instructions = ""
@@ -57,6 +82,14 @@ async def execute_agent_task(task: Task) -> Dict[str, Any]:
             "  ]\n"
             "}"
         )
+
+    tool_instructions += (
+        "\n\nDELEGATION: If completing this task requires work from another agent "
+        "(e.g. you are Marketing and need a graphic from Designer, or you need code from Developer), "
+        "add a tool_call with name 'request_agent_help' and arguments "
+        "{\"agent\": \"<designer|developer|marketing|sales|manager>\", \"request\": \"<what you need, in one sentence>\"}. "
+        "This notifies the Manager to assign that work. You can still proceed with your own output in the same response."
+    )
 
     schema_instructions = ""
     if agent_def.output_schema:
@@ -91,6 +124,14 @@ async def execute_agent_task(task: Task) -> Dict[str, Any]:
         {"role": "user", "content": f"Please execute the task: {task.title}"}
     ]
 
+    await log_activity(
+        project_id=task.project_id,
+        agent_role=task.assigned_agent,
+        activity_type="generating",
+        message=f"Drafting output for \"{task.title}\"...",
+        task_id=task.id,
+    )
+
     try:
         response_text = await nvidia_service.chat_completion(
             messages,
@@ -117,6 +158,34 @@ async def execute_agent_task(task: Task) -> Dict[str, Any]:
                 for tc in result["tool_calls"]:
                     tool_name = tc.get("name")
                     args = tc.get("arguments", {})
+                    if tool_name == "request_agent_help":
+                        # Built-in pseudo-tool: lets an agent ask the Manager
+                        # to assign work to another agent (e.g. Marketing -> Designer)
+                        to_agent = args.get("agent") or args.get("to_agent") or "manager"
+                        request_msg = args.get("request") or args.get("message") or "Needs assistance"
+                        await log_activity(
+                            project_id=task.project_id,
+                            agent_role=task.assigned_agent,
+                            activity_type="delegation",
+                            message=f"{task.assigned_agent} → {to_agent}: {request_msg}",
+                            task_id=task.id,
+                            metadata={"to_agent": to_agent, "from_agent": task.assigned_agent, "request": request_msg},
+                        )
+                        tool_results.append({
+                            "tool_name": tool_name,
+                            "arguments": args,
+                            "result": {"status": "delegated", "to_agent": to_agent},
+                        })
+                        continue
+
+                    await log_activity(
+                        project_id=task.project_id,
+                        agent_role=task.assigned_agent,
+                        activity_type="executing",
+                        message=f"Calling tool '{tool_name}'...",
+                        task_id=task.id,
+                        metadata={"tool_name": tool_name, "arguments": args},
+                    )
                     try:
                         t_res = await integration_manager.execute_tool_call(task.project_id, tool_name, args, db)
                         tool_results.append({
@@ -124,17 +193,57 @@ async def execute_agent_task(task: Task) -> Dict[str, Any]:
                             "arguments": args,
                             "result": t_res
                         })
+                        if tool_name in ("vercel_deploy_site", "vercel_trigger_deploy") and t_res.get("url"):
+                            await log_activity(
+                                project_id=task.project_id,
+                                agent_role=task.assigned_agent,
+                                activity_type="completed",
+                                message=f"🚀 Live at {t_res['url']}",
+                                task_id=task.id,
+                                metadata={"deployment_url": t_res["url"]},
+                            )
+                        else:
+                            await log_activity(
+                                project_id=task.project_id,
+                                agent_role=task.assigned_agent,
+                                activity_type="executing",
+                                message=f"Tool '{tool_name}' completed.",
+                                task_id=task.id,
+                                metadata={"tool_name": tool_name, "result": t_res},
+                            )
                     except Exception as te:
                         tool_results.append({
                             "tool_name": tool_name,
                             "arguments": args,
                             "error": str(te)
                         })
+                        await log_activity(
+                            project_id=task.project_id,
+                            agent_role=task.assigned_agent,
+                            activity_type="error",
+                            message=f"Tool '{tool_name}' failed: {te}",
+                            task_id=task.id,
+                        )
             result["tool_results"] = tool_results
-            
+
+        await log_activity(
+            project_id=task.project_id,
+            agent_role=task.assigned_agent,
+            activity_type="completed",
+            message=f"Finished \"{task.title}\".",
+            task_id=task.id,
+        )
+
         return result
         
     except Exception as e:
+        await log_activity(
+            project_id=task.project_id,
+            agent_role=task.assigned_agent,
+            activity_type="error",
+            message=f"Failed on \"{task.title}\": {e}",
+            task_id=task.id,
+        )
         # Fallback if execution or JSON parsing fails
         return {
             "error": "Failed to execute task or parse output.",

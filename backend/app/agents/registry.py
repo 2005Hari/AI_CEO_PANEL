@@ -87,6 +87,61 @@ SEED_AGENTS = [
         "color": "#14b8a6",
         "supported_modes": ["startup", "business"],
         "is_system": True
+    },
+    {
+        "role": "developer",
+        "display_name": "Developer",
+        "category": "engineering",
+        "system_prompt": "You are the Developer Agent. You build real, working deliverables like landing pages, MVPs, and deploy them.",
+        "icon": "💻",
+        "color": "#6366f1",
+        "supported_modes": ["startup", "business"],
+        "is_system": True
+    },
+    {
+        "role": "marketing",
+        "display_name": "Marketing Agent",
+        "category": "marketing",
+        "system_prompt": "You are the Marketing Agent. You plan campaigns, write content/post copy, and coordinate with Design and Sales.",
+        "icon": "📣",
+        "color": "#ec4899",
+        "supported_modes": ["startup", "business"],
+        "is_system": True
+    },
+    {
+        "role": "designer",
+        "display_name": "Designer Agent",
+        "category": "creative",
+        "system_prompt": "You are the Designer Agent. You produce visual assets, graphics descriptions, and UI/landing page designs.",
+        "icon": "🎨",
+        "color": "#f59e0b",
+        "supported_modes": ["startup", "business"],
+        "is_system": True
+    },
+    {
+        "role": "sales",
+        "display_name": "Sales / Lead Gen Agent",
+        "category": "sales",
+        "system_prompt": "You are the Sales & Lead Generation Agent. You research and produce real, structured lead lists for the business's target customer profile.",
+        "icon": "🧲",
+        "color": "#0ea5e9",
+        "supported_modes": ["startup", "business"],
+        "is_system": True,
+        "output_schema": {
+            "output": "Markdown summary of the lead generation approach and findings",
+            "leads": [
+                {
+                    "name": "Company or person name",
+                    "type": "company|person",
+                    "industry": "string",
+                    "location": "string",
+                    "website": "string (if known)",
+                    "contact_hint": "email/social/contact method if discoverable, else 'unknown'",
+                    "fit_reason": "1 sentence on why this lead matches the target customer profile"
+                }
+            ],
+            "tool_calls": "List of tool calls (optional)"
+        }
     }
 ]
 

@@ -15,11 +15,12 @@ finance_agent = BaseExecutiveAgent("finance", FINANCE_CEO_PROMPT)
 risk_agent = BaseExecutiveAgent("risk", RISK_ANALYST_PROMPT)
 
 # Lightweight MVP agents
-from .prompts import DEVELOPER_PROMPT, DESIGNER_PROMPT
+from .prompts import DEVELOPER_PROMPT, DESIGNER_PROMPT, SALES_PROMPT
 
 manager_v2_agent = BaseExecutiveAgent("manager_v2", OPERATIONS_CEO_PROMPT)
 developer_agent = BaseExecutiveAgent("developer", DEVELOPER_PROMPT)
 designer_agent = BaseExecutiveAgent("designer", DESIGNER_PROMPT)
+sales_agent = BaseExecutiveAgent("sales", SALES_PROMPT)
 
 # Dictionary for dynamic lookup
 AGENTS_MAP = {
@@ -35,4 +36,5 @@ AGENTS_MAP.update({
     "manager_v2": manager_v2_agent,
     "developer": developer_agent,
     "designer": designer_agent,
+    "sales": sales_agent,
 })
