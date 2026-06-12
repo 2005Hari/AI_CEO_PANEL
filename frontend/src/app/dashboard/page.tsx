@@ -339,7 +339,7 @@ export default function DashboardPage() {
         )}
 
         <div className="p-4 border-t border-white/[0.04] flex justify-center shrink-0">
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </div>
 

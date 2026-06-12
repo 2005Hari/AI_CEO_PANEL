@@ -31,6 +31,9 @@ export type Project = {
     [key: string]: any;
   };
   created_at: string;
+  operating_mode?: string;
+  discovery_completed?: boolean;
+  health_score?: number;
 };
 
 export type Session = {

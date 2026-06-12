@@ -1,7 +1,5 @@
 # backend/app/services/integrations.py
 import json
-import base64
-import httpx
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,168 +116,35 @@ class GitHubProvider(BaseIntegrationProvider):
                     },
                     "required": ["repo", "title", "body"]
                 }
-            },
-            {
-                "name": "github_push_file",
-                "description": "Create or update a single file's contents in a GitHub repository (e.g. to add a generated page, component, or config file).",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "repo_name": {
-                            "type": "string",
-                            "description": "The repository name (without owner)."
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "File path within the repo, e.g. 'app/page.tsx' or 'index.html'."
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Full plain-text content of the file."
-                        },
-                        "commit_message": {
-                            "type": "string",
-                            "description": "Commit message for this change."
-                        },
-                        "branch": {
-                            "type": "string",
-                            "description": "Branch to commit to (defaults to 'main')."
-                        }
-                    },
-                    "required": ["repo_name", "path", "content"]
-                }
             }
         ]
 
     async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        token = self.config.get("access_token") or self.config.get("token")
-        owner = self.config.get("owner") or self.config.get("username")
-
-        if not token or not owner:
+        if tool_name == "github_create_repository":
+            repo_name = arguments.get("repo_name")
+            desc = arguments.get("description", "")
             return {
-                "status": "error",
-                "message": "GitHub integration is not fully configured (missing access_token or owner).",
+                "status": "success",
+                "message": f"Created GitHub repository '{repo_name}' successfully",
+                "repo_url": f"https://github.com/mock-org/{repo_name}",
+                "details": {
+                    "name": repo_name,
+                    "description": desc,
+                    "created_at": datetime.utcnow().isoformat()
+                }
             }
-
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            if tool_name == "github_create_repository":
-                repo_name = arguments.get("repo_name")
-                desc = arguments.get("description", "")
-                is_private = bool(arguments.get("is_private", False))
-
-                resp = await client.post(
-                    "https://api.github.com/user/repos",
-                    headers=headers,
-                    json={
-                        "name": repo_name,
-                        "description": desc,
-                        "private": is_private,
-                        "auto_init": True,
-                    },
-                )
-                if resp.status_code in (200, 201):
-                    data = resp.json()
-                    return {
-                        "status": "success",
-                        "message": f"Created GitHub repository '{repo_name}'",
-                        "repo_url": data.get("html_url"),
-                        "details": {
-                            "name": data.get("name"),
-                            "full_name": data.get("full_name"),
-                            "default_branch": data.get("default_branch"),
-                            "created_at": data.get("created_at"),
-                        },
-                    }
-                if resp.status_code == 422:
-                    # Likely already exists - fetch it
-                    existing = await client.get(
-                        f"https://api.github.com/repos/{owner}/{repo_name}", headers=headers
-                    )
-                    if existing.status_code == 200:
-                        data = existing.json()
-                        return {
-                            "status": "success",
-                            "message": f"Repository '{repo_name}' already exists; reusing it.",
-                            "repo_url": data.get("html_url"),
-                            "details": {"name": data.get("name"), "default_branch": data.get("default_branch")},
-                        }
-                return {
-                    "status": "error",
-                    "message": f"GitHub repo creation failed ({resp.status_code})",
-                    "details": resp.text[:500],
+        elif tool_name == "github_create_pull_request":
+            repo = arguments.get("repo")
+            title = arguments.get("title")
+            return {
+                "status": "success",
+                "message": f"Created Pull Request #{101} in '{repo}'",
+                "pr_url": f"https://github.com/mock-org/{repo}/pull/101",
+                "details": {
+                    "title": title,
+                    "state": "open"
                 }
-
-            elif tool_name == "github_push_file":
-                repo_name = arguments.get("repo_name")
-                path = arguments.get("path", "").lstrip("/")
-                content = arguments.get("content", "")
-                commit_message = arguments.get("commit_message") or f"Update {path}"
-                branch = arguments.get("branch", "main")
-
-                url = f"https://api.github.com/repos/{owner}/{repo_name}/contents/{path}"
-
-                # Check if file already exists to get its sha (required for updates)
-                sha = None
-                existing = await client.get(url, headers=headers, params={"ref": branch})
-                if existing.status_code == 200:
-                    sha = existing.json().get("sha")
-
-                encoded_content = base64.b64encode(content.encode("utf-8")).decode("ascii")
-                payload = {
-                    "message": commit_message,
-                    "content": encoded_content,
-                    "branch": branch,
-                }
-                if sha:
-                    payload["sha"] = sha
-
-                resp = await client.put(url, headers=headers, json=payload)
-                if resp.status_code in (200, 201):
-                    data = resp.json()
-                    return {
-                        "status": "success",
-                        "message": f"{'Updated' if sha else 'Created'} '{path}' in {owner}/{repo_name}",
-                        "file_url": data.get("content", {}).get("html_url"),
-                        "commit_sha": data.get("commit", {}).get("sha"),
-                    }
-                return {
-                    "status": "error",
-                    "message": f"GitHub file push failed ({resp.status_code})",
-                    "details": resp.text[:500],
-                }
-
-            elif tool_name == "github_create_pull_request":
-                repo = arguments.get("repo")
-                title = arguments.get("title")
-                body = arguments.get("body", "")
-                head = arguments.get("head", "main")
-                base = arguments.get("base", "main")
-
-                resp = await client.post(
-                    f"https://api.github.com/repos/{owner}/{repo}/pulls",
-                    headers=headers,
-                    json={"title": title, "body": body, "head": head, "base": base},
-                )
-                if resp.status_code in (200, 201):
-                    data = resp.json()
-                    return {
-                        "status": "success",
-                        "message": f"Created Pull Request #{data.get('number')} in '{repo}'",
-                        "pr_url": data.get("html_url"),
-                        "details": {"title": title, "state": data.get("state")},
-                    }
-                return {
-                    "status": "error",
-                    "message": f"GitHub PR creation failed ({resp.status_code})",
-                    "details": resp.text[:500],
-                }
-
+            }
         raise ValueError(f"Unknown tool '{tool_name}' for provider {self.provider_name}")
 
 
@@ -289,33 +154,8 @@ class VercelProvider(BaseIntegrationProvider):
     def get_tools(self) -> List[Dict[str, Any]]:
         return [
             {
-                "name": "vercel_deploy_site",
-                "description": "Deploy a small static or Next.js site to Vercel directly from file contents (no GitHub repo required) and get a live URL.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "project_name": {
-                            "type": "string",
-                            "description": "Vercel project name (used to generate the deployment URL)."
-                        },
-                        "files": {
-                            "type": "array",
-                            "description": "List of files to deploy, each {\"path\": str, \"content\": str}.",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "path": {"type": "string"},
-                                    "content": {"type": "string"}
-                                }
-                            }
-                        }
-                    },
-                    "required": ["project_name", "files"]
-                }
-            },
-            {
                 "name": "vercel_trigger_deploy",
-                "description": "Trigger a redeploy of an existing Vercel project (uses latest linked Git branch).",
+                "description": "Deploy a branch or project to Vercel.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -334,87 +174,16 @@ class VercelProvider(BaseIntegrationProvider):
         ]
 
     async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        token = self.config.get("access_token") or self.config.get("token")
-        team_id = self.config.get("team_id")
-
-        if not token:
+        if tool_name == "vercel_trigger_deploy":
+            project = arguments.get("project_name")
+            branch = arguments.get("branch", "main")
             return {
-                "status": "error",
-                "message": "Vercel integration is not configured (missing access_token).",
+                "status": "success",
+                "message": f"Triggered deployment build for Vercel project '{project}' from branch '{branch}'",
+                "deployment_id": "dpl_mock123abc789",
+                "url": f"https://{project}-git-{branch}-mock.vercel.app",
+                "triggered_at": datetime.utcnow().isoformat()
             }
-
-        headers = {"Authorization": f"Bearer {token}"}
-        params = {"teamId": team_id} if team_id else {}
-
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            if tool_name == "vercel_deploy_site":
-                project = arguments.get("project_name")
-                files = arguments.get("files", [])
-
-                deploy_files = [
-                    {"file": f["path"].lstrip("/"), "data": f["content"]} for f in files
-                ]
-
-                resp = await client.post(
-                    "https://api.vercel.com/v13/deployments",
-                    headers=headers,
-                    params=params,
-                    json={
-                        "name": project,
-                        "files": deploy_files,
-                        "target": "production",
-                        "projectSettings": {"framework": None},
-                    },
-                )
-                if resp.status_code in (200, 201):
-                    data = resp.json()
-                    url = data.get("url")
-                    return {
-                        "status": "success",
-                        "message": f"Deployed '{project}' to Vercel",
-                        "deployment_id": data.get("id"),
-                        "url": f"https://{url}" if url else None,
-                        "triggered_at": datetime.utcnow().isoformat(),
-                    }
-                return {
-                    "status": "error",
-                    "message": f"Vercel deployment failed ({resp.status_code})",
-                    "details": resp.text[:500],
-                }
-
-            elif tool_name == "vercel_trigger_deploy":
-                project = arguments.get("project_name")
-                branch = arguments.get("branch", "main")
-
-                resp = await client.post(
-                    "https://api.vercel.com/v13/deployments",
-                    headers=headers,
-                    params=params,
-                    json={
-                        "name": project,
-                        "gitSource": {
-                            "type": "github",
-                            "ref": branch,
-                        },
-                        "target": "production",
-                    },
-                )
-                if resp.status_code in (200, 201):
-                    data = resp.json()
-                    url = data.get("url")
-                    return {
-                        "status": "success",
-                        "message": f"Triggered deployment for '{project}' on branch '{branch}'",
-                        "deployment_id": data.get("id"),
-                        "url": f"https://{url}" if url else None,
-                        "triggered_at": datetime.utcnow().isoformat(),
-                    }
-                return {
-                    "status": "error",
-                    "message": f"Vercel deploy trigger failed ({resp.status_code})",
-                    "details": resp.text[:500],
-                }
-
         raise ValueError(f"Unknown tool '{tool_name}' for provider {self.provider_name}")
 
 
@@ -456,85 +225,12 @@ class GoogleWorkspaceProvider(BaseIntegrationProvider):
         raise ValueError(f"Unknown tool '{tool_name}' for provider {self.provider_name}")
 
 
-class WebSearchProvider(BaseIntegrationProvider):
-    """Lightweight web search provider for lead-gen / research tasks.
-
-    Uses Serper.dev (Google Search API) if configured via
-    Integration.config = {"provider": "serper", "api_key": "..."}.
-    Add other providers by extending execute_tool.
-    """
-    provider_name = "web_search"
-
-    def get_tools(self) -> List[Dict[str, Any]]:
-        return [
-            {
-                "name": "web_search",
-                "description": "Search the web for companies, people, or businesses matching a query. Use this for lead generation and market research.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search query, e.g. 'boutique fitness studios in Austin TX'."
-                        },
-                        "num_results": {
-                            "type": "integer",
-                            "description": "Number of results to return (default 10, max 20)."
-                        }
-                    },
-                    "required": ["query"]
-                }
-            }
-        ]
-
-    async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if tool_name != "web_search":
-            raise ValueError(f"Unknown tool '{tool_name}' for provider {self.provider_name}")
-
-        api_key = self.config.get("api_key")
-        provider = self.config.get("provider", "serper")
-        query = arguments.get("query", "")
-        num_results = min(int(arguments.get("num_results", 10)), 20)
-
-        if not api_key:
-            return {
-                "status": "error",
-                "message": "Web search is not configured (missing api_key for provider).",
-            }
-
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            if provider == "serper":
-                resp = await client.post(
-                    "https://google.serper.dev/search",
-                    headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
-                    json={"q": query, "num": num_results},
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    results = []
-                    for item in data.get("organic", [])[:num_results]:
-                        results.append({
-                            "title": item.get("title"),
-                            "link": item.get("link"),
-                            "snippet": item.get("snippet"),
-                        })
-                    return {"status": "success", "query": query, "results": results}
-                return {
-                    "status": "error",
-                    "message": f"Search failed ({resp.status_code})",
-                    "details": resp.text[:300],
-                }
-
-        return {"status": "error", "message": f"Unsupported search provider '{provider}'"}
-
-
 # Registry mapping provider keys to classes
 PROVIDER_CLASS_MAP = {
     "slack": SlackProvider,
     "github": GitHubProvider,
     "vercel": VercelProvider,
     "google": GoogleWorkspaceProvider,
-    "web_search": WebSearchProvider,
 }
 
 class IntegrationManager:

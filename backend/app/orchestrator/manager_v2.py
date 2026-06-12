@@ -9,7 +9,6 @@ from app.db.models import AgentDefinition, Task, Plan, Deliverable, Department, 
 from app.services.context_builder import UnifiedContextBuilder
 from app.services.nvidia import nvidia_service
 from app.api.websockets import manager
-from app.services.activity_logger import log_activity
 
 def _map_agent_to_department(agent_name: str) -> str:
     if not agent_name:
@@ -30,12 +29,6 @@ async def create_plan_and_tasks(project_id: str, founder_request: str, db: Async
     Expects LLM JSON with optional 'deliverables' list and 'tasks' linked to deliverables by name.
     """
     # Build context
-    await log_activity(
-        project_id=project_id,
-        agent_role="manager",
-        activity_type="thinking",
-        message=f"Reviewing request: \"{founder_request}\"",
-    )
     context = await UnifiedContextBuilder.build(db, project_id, rag_query=founder_request, include_rag=True)
     blueprint_ctx = context.prompt_text
 
@@ -73,13 +66,6 @@ async def create_plan_and_tasks(project_id: str, founder_request: str, db: Async
         payload = json.loads(clean_text)
     except Exception as e:
         return {"status": "error", "message": f"Failed to parse manager v2 response: {e}", "raw": response_text}
-
-    await log_activity(
-        project_id=project_id,
-        agent_role="manager",
-        activity_type="generating",
-        message=f"Drafted plan: \"{payload.get('plan_title') or payload.get('title') or 'Generated Plan'}\". Assigning tasks to team...",
-    )
 
     # Create Plan
     plan = Plan(
@@ -120,6 +106,7 @@ async def create_plan_and_tasks(project_id: str, founder_request: str, db: Async
     for t in payload.get("tasks", []):
         task = Task(
             project_id=project_id,
+            plan_id=plan.id,
             title=t.get("title", "Untitled Task"),
             description=t.get("description", ""),
             assigned_agent=t.get("assigned_agent"),
@@ -131,15 +118,6 @@ async def create_plan_and_tasks(project_id: str, founder_request: str, db: Async
         db.add(task)
         await db.commit()
         await db.refresh(task)
-
-        await log_activity(
-            project_id=project_id,
-            agent_role="manager",
-            activity_type="delegation",
-            message=f"Manager → {task.assigned_agent or 'Unassigned'}: {task.title}",
-            task_id=task.id,
-            metadata={"to_agent": task.assigned_agent, "from_agent": "manager"},
-        )
         
         # Link to deliverable if name provided
         deliverable_name = t.get("deliverable_name")
@@ -186,13 +164,6 @@ async def create_plan_and_tasks(project_id: str, founder_request: str, db: Async
         "type": "tasks_created",
         "count": len(created_tasks)
     })
-
-    await log_activity(
-        project_id=project_id,
-        agent_role="manager",
-        activity_type="completed",
-        message=f"Plan ready: {len(created_tasks)} task(s) assigned across the team.",
-    )
 
     return {
         "status": "success",

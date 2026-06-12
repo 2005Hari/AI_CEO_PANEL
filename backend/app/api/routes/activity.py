@@ -112,10 +112,35 @@ async def activity_websocket(
     await manager.connect(websocket, project_id)
 
     try:
+        last_id = None
         while True:
-            # Events are pushed instantly via manager.broadcast() from
-            # activity_logger.log_activity(). We just need to keep the
-            # connection open and detect client disconnects.
-            await websocket.receive_text()
+            await asyncio.sleep(2)
+
+            async with AsyncSessionLocal() as db:
+                query = (
+                    select(AgentActivity)
+                    .where(AgentActivity.project_id == project_id)
+                    .order_by(AgentActivity.created_at.desc())
+                    .limit(5)
+                )
+                result = await db.execute(query)
+                latest_activities = result.scalars().all()
+
+                if latest_activities:
+                    top_id = latest_activities[0].id
+                    if top_id != last_id:
+                        last_id = top_id
+                        activity = latest_activities[0]
+                        await websocket.send_json({
+                            "type": "new_activity",
+                            "data": {
+                                "id": activity.id,
+                                "task_id": activity.task_id,
+                                "agent_role": activity.agent_role,
+                                "activity_type": activity.activity_type,
+                                "message": activity.message,
+                                "created_at": activity.created_at.isoformat(),
+                            },
+                        })
     except WebSocketDisconnect:
         manager.disconnect(websocket, project_id)
