@@ -1,0 +1,28 @@
+# Python virtual environments
+.venv/
+.venv2/
+backend/venv/
+
+# Environment files containing secrets
+backend/.env
+.env
+.env.local
+.env.*.local
+
+# Databases
+*.db
+*.sqlite3
+
+# Python caches and build files
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/.pytest_cache/
+backend/__pycache__/
+
+# Node/Frontend specific dependencies & builds
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
