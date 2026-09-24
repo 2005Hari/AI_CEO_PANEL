@@ -34,26 +34,29 @@ async def sse_generator(
     project: Project,
 ) -> AsyncGenerator[str, None]:
     if chat_req.mode == "ceo":
-        async with AsyncSessionLocal() as db:
-            session_id = chat_req.session_id
-            if not session_id:
-                session = Session(project_id=project.id)
-                db.add(session)
+        try:
+            async with AsyncSessionLocal() as db:
+                session_id = chat_req.session_id
+                if not session_id:
+                    session = Session(project_id=project.id)
+                    db.add(session)
+                    await db.commit()
+                    await db.refresh(session)
+                    session_id = session.id
+                    yield json.dumps({"type": "session_created", "session_id": session_id})
+
+                user_message = Message(
+                    session_id=session_id,
+                    role="user",
+                    content=chat_req.message,
+                )
+                db.add(user_message)
                 await db.commit()
-                await db.refresh(session)
-                session_id = session.id
-                yield json.dumps({"type": "session_created", "session_id": session_id})
-            
-            user_message = Message(
-                session_id=session_id,
-                role="user",
-                content=chat_req.message,
-            )
-            db.add(user_message)
-            await db.commit()
-            
-            async for chunk in ceo_orchestrator_stream(project.id, session_id, chat_req.message, db):
-                yield chunk
+
+                async for chunk in ceo_orchestrator_stream(project.id, session_id, chat_req.message, db):
+                    yield chunk
+        except Exception as e:
+            yield json.dumps({"type": "error", "content": str(e)})
         return
 
     try:

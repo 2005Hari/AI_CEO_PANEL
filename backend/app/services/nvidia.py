@@ -81,9 +81,15 @@ class NVIDIAInferenceService:
                         backoff *= 2.0
                         continue
 
+                # Other client errors (401, 403, 404, etc.) are permanent — fail immediately, no retry
+                if 400 <= response.status_code < 500:
+                    raise RuntimeError(
+                        f"NVIDIA API request failed with status {response.status_code}: {response.text}"
+                    )
+
                 response.raise_for_status()
                 data = response.json()
-                
+
                 if "choices" in data and len(data["choices"]) > 0:
                     return data["choices"][0]["message"]["content"]
                 else:

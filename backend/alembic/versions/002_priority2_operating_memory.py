@@ -16,7 +16,19 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(bind, name: str) -> bool:
+    return sa.inspect(bind).has_table(name)
+
+
 def upgrade() -> None:
+    bind = op.get_bind()
+
+    # NOTE: migration 001 runs Base.metadata.create_all() against the current models,
+    # which already includes these tables. Guard against "already exists" so this
+    # migration is safe to run both on a fresh DB and on one where 001 created everything.
+    if _table_exists(bind, "company_operating_profiles"):
+        return
+
     op.create_table(
         "company_operating_profiles",
         sa.Column("id", sa.String(), nullable=False),

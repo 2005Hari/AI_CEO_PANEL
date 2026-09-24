@@ -55,12 +55,15 @@ async def decompose_and_delegate(
         {"role": "user", "content": founder_request}
     ]
 
-    response_text = await nvidia_service.chat_completion(
-        messages,
-        temperature=0.2,
-        max_tokens=2048
-    )
-    
+    try:
+        response_text = await nvidia_service.chat_completion(
+            messages,
+            temperature=0.2,
+            max_tokens=2048
+        )
+    except Exception as e:
+        return {"status": "error", "message": f"Manager LLM call failed: {e}"}
+
     # Clean potential markdown block wrappers
     clean_text = response_text.strip()
     if clean_text.startswith("```"):
@@ -70,7 +73,7 @@ async def decompose_and_delegate(
         if lines[-1].startswith("```"):
             lines = lines[:-1]
         clean_text = "\n".join(lines).strip()
-        
+
     try:
         plan = json.loads(clean_text)
         

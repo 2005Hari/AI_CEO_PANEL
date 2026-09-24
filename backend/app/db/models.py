@@ -542,7 +542,6 @@ class Deliverable(Base):
     project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     task_id = Column(String, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True)
     objective_id = Column(String, ForeignKey("objectives.id", ondelete="SET NULL"), nullable=True)
-    plan_id = Column(String, nullable=True)
     plan_id = Column(String, ForeignKey("plans.id", ondelete="CASCADE"), nullable=True, index=True)
 
     deliverable_type = Column(String, nullable=False)

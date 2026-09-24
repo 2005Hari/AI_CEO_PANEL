@@ -51,7 +51,10 @@ async def create_plan_and_tasks(project_id: str, founder_request: str, db: Async
         {"role": "user", "content": founder_request}
     ]
 
-    response_text = await nvidia_service.chat_completion(messages, temperature=0.2, max_tokens=2048)
+    try:
+        response_text = await nvidia_service.chat_completion(messages, temperature=0.2, max_tokens=2048)
+    except Exception as e:
+        return {"status": "error", "message": f"Manager v2 LLM call failed: {e}"}
 
     clean_text = response_text.strip()
     if clean_text.startswith("```"):

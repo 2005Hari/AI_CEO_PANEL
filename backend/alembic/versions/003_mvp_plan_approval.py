@@ -16,7 +16,27 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, name: str) -> bool:
+    return sa.inspect(bind).has_table(name)
+
+
+def _column_exists(bind, table: str, column: str) -> bool:
+    if not _table_exists(bind, table):
+        return False
+    return column in [c["name"] for c in sa.inspect(bind).get_columns(table)]
+
+
 def upgrade() -> None:
+    bind = op.get_bind()
+
+    # NOTE: migration 001 runs Base.metadata.create_all() against the current models,
+    # which already includes these tables/columns. Guard against "already exists" so
+    # this migration is safe to run both on a fresh DB and on one where 001 created everything.
+    tables_already_exist = _table_exists(bind, "plans")
+
+    if tables_already_exist:
+        return
+
     # Create plans table
     op.create_table(
         'plans',
@@ -65,7 +85,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['objective_id'], ['objectives.id'], ondelete='SET NULL'),
-        sa.ForeignKeyConstraint(['plan_id'], ['plans.id'], ondelete='SET NULL'),
+        sa.ForeignKeyConstraint(['plan_id'], ['plans.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['parent_deliverable_id'], ['deliverables.id']),
         sa.ForeignKeyConstraint(['approved_by_user_id'], ['users.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id'),
