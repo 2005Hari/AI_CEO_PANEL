@@ -272,7 +272,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ project, onUpd
       const config = intConfigs[provider] || {};
       const updated = await connectIntegration(project.id, provider, config);
       setIntegrations(prev => prev.map(i => i.provider === provider ? updated : i));
-      setIntMessage({ type: 'success', content: `Successfully connected ${getProviderLabel(provider)}!` });
+      setIntMessage({
+        type: 'success',
+        content: `Saved ${getProviderLabel(provider)} — this is a simulated connection for v1, no real ${getProviderLabel(provider)} account has been linked yet.`,
+      });
       setExpandedInt(null);
     } catch (err: any) {
       setIntMessage({ type: 'error', content: err.message || `Failed to connect ${provider}.` });
@@ -707,6 +710,13 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ project, onUpd
           <p className="text-sm text-gray-400 mt-1">
             Connect external startup tools to let specialized boardroom agents perform actions and synchronize files dynamically into the RAG base.
           </p>
+          <div className="mt-4 flex items-start gap-2 bg-amber-950/20 border border-amber-500/20 rounded-lg px-3 py-2.5">
+            <span className="text-amber-400 text-sm shrink-0">⚠️</span>
+            <p className="text-xs text-amber-300/90 leading-relaxed">
+              <span className="font-semibold">Simulated for v1.</span> These integrations do not call real GitHub, Slack, Vercel, or Google accounts —
+              agent actions are mocked so you can test the workflow. No credentials you enter here are sent anywhere.
+            </p>
+          </div>
         </div>
 
         {intMessage && (
@@ -749,15 +759,25 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ project, onUpd
                         </span>
                         <div>
                           <h4 className="font-semibold text-white capitalize">{int.provider}</h4>
-                          <span
-                            className={`inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1 ${
-                              isConnected
-                                ? 'bg-blue-500/25 text-blue-400 border border-blue-500/20'
-                                : 'bg-gray-800/40 text-gray-500 border border-gray-800/30'
-                            }`}
-                          >
-                            {int.status}
-                          </span>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span
+                              className={`inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                isConnected
+                                  ? 'bg-blue-500/25 text-blue-400 border border-blue-500/20'
+                                  : 'bg-gray-800/40 text-gray-500 border border-gray-800/30'
+                              }`}
+                            >
+                              {int.status}
+                            </span>
+                            {isConnected && (
+                              <span
+                                className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25"
+                                title="This connection is simulated — no real account is linked."
+                              >
+                                Simulated
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
