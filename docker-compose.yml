@@ -15,5 +15,46 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      USE_SQLITE: "false"
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: aios
+      POSTGRES_PASSWORD: aios_dev_password
+      POSTGRES_DB: ai_startup_os
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-meta/llama-3.1-70b-instruct}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CLERK_ISSUER: ${CLERK_ISSUER:-}
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
+      CLERK_AUDIENCE: ${CLERK_AUDIENCE:-}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      DEV_MOCK_USER_ENABLED: ${DEV_MOCK_USER_ENABLED:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the browser bundle at build time — see frontend/Dockerfile.
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_test_Y2xlcmsuZXhhbXBsZS5jb20k}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "3000:3000"
+    environment:
+      # Server-only secret, read at runtime — must be a real key for sign-in
+      # to actually work; the placeholder here only keeps the container from
+      # crashing on boot.
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-sk_test_00000000000000000000000000000000000000000000}
+    depends_on:
+      - backend
+
 volumes:
   pgdata:

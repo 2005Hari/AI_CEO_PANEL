@@ -263,6 +263,12 @@ npm run test
 ```bash
 docker-compose up --build
 ```
+This starts Postgres + pgvector, the backend (port 8000), and the frontend (port 3000)
+with safe placeholder Clerk/NVIDIA credentials, so the stack boots without any setup.
+Sign-in and real LLM calls won't work with the placeholders — for those, create a
+`.env` file at the repo root (docker-compose reads it automatically) with your real
+`NVIDIA_API_KEY`, `CLERK_ISSUER`, `CLERK_JWKS_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+and `CLERK_SECRET_KEY`, then re-run `docker-compose up --build`.
 
 ### Production Deployment (See DEPLOYMENT.md)
 - Build and push Docker images
