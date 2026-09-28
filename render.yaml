@@ -31,7 +31,7 @@ services:
       - key: NVIDIA_API_KEY
         sync: false
       - key: NVIDIA_MODEL
-        value: meta/llama-3.1-70b-instruct
+        value: nvidia/nemotron-3-super-120b-a12b
       - key: CLERK_ISSUER
         sync: false
       - key: CLERK_JWKS_URL

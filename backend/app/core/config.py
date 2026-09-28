@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # LLM
     GEMINI_API_KEY: str | None = None
     NVIDIA_API_KEY: str | None = None
-    NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
+    NVIDIA_MODEL: str = "nvidia/nemotron-3-super-120b-a12b"
     
     class Config:
         case_sensitive = True

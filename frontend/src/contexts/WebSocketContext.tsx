@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { API_BASE_URL } from '@/lib/api';
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -28,8 +29,7 @@ export function WebSocketProvider({ projectId, children }: WebSocketProviderProp
   useEffect(() => {
     if (!projectId) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//localhost:8000/api/v1/ws/${projectId}`;
+    const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/${projectId}`;
 
     const ws = new WebSocket(wsUrl);
 
