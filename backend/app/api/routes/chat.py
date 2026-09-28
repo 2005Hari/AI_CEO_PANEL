@@ -132,7 +132,8 @@ async def sse_generator(
                             "type": "status",
                             "content": (
                                 f"Analyzed intent: {state_update.get('intent', '')}. "
-                                f"Waking agents: {', '.join(state_update.get('active_agents', []))}."
+                                f"Waking agents: {', '.join(state_update.get('active_agents', []))}. "
+                                "This can take a couple of minutes end to end."
                             ),
                         })
                     elif node_name == "parallel_agents":
@@ -144,6 +145,14 @@ async def sse_generator(
                                 "agent": agent_key,
                                 "content": draft,
                             })
+                        # LangGraph only yields a node's output once it has fully
+                        # finished, so there is no signal for the next stage
+                        # starting unless we say so here — without this, the UI
+                        # goes quiet for the entire critic + synthesis phases.
+                        yield json.dumps({
+                            "type": "status",
+                            "content": "Risk Analyst is reviewing the drafts for blind spots...",
+                        })
                     elif node_name == "critic":
                         critiques = state_update.get("critiques", {})
                         critiques_response.update(critiques)
@@ -153,6 +162,10 @@ async def sse_generator(
                                 "agent": agent_key,
                                 "content": critique,
                             })
+                        yield json.dumps({
+                            "type": "status",
+                            "content": "Synthesizing the executive consensus...",
+                        })
                     elif node_name == "synthesizer":
                         consensus_content = state_update.get("final_consensus", "")
                         final_consensus = consensus_content
