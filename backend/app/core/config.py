@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     NVIDIA_API_KEY: str | None = None
     NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
+
+    # Boardroom live research (optional; falls back to keyless web search)
+    TAVILY_API_KEY: str | None = None
     
     class Config:
         case_sensitive = True

@@ -472,6 +472,29 @@ class Workspace(Base):
     projects = relationship("Project", back_populates="workspace")
 
 
+class Boardroom(Base):
+    """AI Boardroom persistent workspace: objective, board, research, discussion, outputs, history."""
+    __tablename__ = "boardrooms"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String, nullable=False, default="Untitled boardroom")
+    objective = Column(Text, nullable=False)
+    context = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="created")  # created | running | complete | failed | interrupted
+    analysis = Column(JSON, nullable=True)
+    board = Column(JSON, nullable=True)
+    sources = Column(JSON, default=list)
+    messages = Column(JSON, default=list)
+    decisions = Column(JSON, default=list)
+    tasks = Column(JSON, default=list)
+    outputs = Column(JSON, default=list)
+    history = Column(JSON, default=list)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class FounderProfile(Base):
     """Founder identity and preferences — 1:1 with User."""
     __tablename__ = "founder_profiles"

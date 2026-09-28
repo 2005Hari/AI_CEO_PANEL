@@ -1,3 +1,27 @@
+# AI Boardroom (V1)
+
+> **Your AI team for any problem.** Describe the work; the system assembles the right room.
+
+The `/boardroom` page (backend: `backend/app/boardroom/`, API: `POST /api/v1/boardrooms/stream`) is a domain-agnostic
+work engine. Nothing in it assumes a startup, a developer or any profession.
+
+```
+request -> Work Analyzer -> Board Architect / Agent Factory -> research -> individual analysis
+        -> challenge & response -> Chairperson adds/releases specialists -> deliverable -> quality review -> refine
+```
+
+- **Work Analyzer** extracts objective, domain, task type, complexity, constraints, desired output and sensitivity (legal / medical / financial / safety).
+- **Board Architect** designs the *minimum* team (2 to 10 members) from reusable archetypes (expert, researcher, critic, strategist, operator, customer, financial analyst, risk analyst, creative, quality reviewer), adapted to the work. It always includes a challenger for teams of 3+.
+- Members are labelled **"… Perspective"**: AI-generated expert viewpoints, never claimed to be real people.
+- **Research** uses live web search (keyless DuckDuckGo, or Tavily when `TAVILY_API_KEY` is set). Every source gets an id; citations that match no real source are stripped. If research returns nothing, the UI says the output is not source-backed.
+- **Tools** are assigned per agent from a catalog. Only `web_research` and `document_analysis` are implemented; others are shown as *(planned)* rather than pretended.
+- **Output** type follows the task (Research Brief, Strategy Document, Execution Plan, Decision Brief, Review Report, Finished Draft, ...), then a quality review may trigger one revision. Legal/medical/financial/safety work gets a mandatory disclaimer distinguishing AI analysis from professional advice.
+- Each boardroom is a **persistent workspace** (analysis, board, sources, discussion, decisions, tasks, outputs with versions, history). Refine a deliverable with feedback from the UI.
+
+Requires `NVIDIA_API_KEY` (see `backend/.env.example`). Not in V1: continuous monitoring ("keep this updated"), running Python/SQL/spreadsheet tools, file uploads.
+
+---
+
 # AI CEO Panel - MVP Edition
 
 **A founder's startup operating system that automates planning, task generation, and approval workflows.**

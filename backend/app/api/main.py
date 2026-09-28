@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     chat, projects, sessions, nvidia, documents, agents, blueprint, discovery,
     tasks, activity, agent_registry, objectives, manager, integrations,
-    operating_profile, founder_profile, decisions, approvals, metrics, plans
+    operating_profile, founder_profile, decisions, approvals, metrics, plans, boardrooms
 )
 
 api_router = APIRouter()
@@ -26,6 +26,7 @@ api_router.include_router(decisions.router, prefix="", tags=["decisions"])
 api_router.include_router(approvals.router, prefix="", tags=["approvals"])
 api_router.include_router(metrics.router, prefix="", tags=["metrics"])
 api_router.include_router(plans.router, prefix="", tags=["plans"])
+api_router.include_router(boardrooms.router, prefix="", tags=["boardrooms"])
 
 from app.api.websockets import router as ws_router
 api_router.include_router(ws_router, prefix="", tags=["websockets"])
