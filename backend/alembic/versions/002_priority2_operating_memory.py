@@ -17,6 +17,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if inspector.has_table("company_operating_profiles"):
+        # Migration 001's Base.metadata.create_all() already materialized this
+        # migration's tables against the current models.py on a fresh database.
+        return
+
     op.create_table(
         "company_operating_profiles",
         sa.Column("id", sa.String(), nullable=False),

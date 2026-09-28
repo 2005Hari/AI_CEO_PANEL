@@ -17,6 +17,13 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if inspector.has_table("plans"):
+        # Migration 001's Base.metadata.create_all() already materialized this
+        # migration's tables/columns against the current models.py on a fresh database.
+        return
+
     # Create plans table
     op.create_table(
         'plans',
