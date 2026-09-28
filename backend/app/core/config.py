@@ -1,24 +1,22 @@
 import os
 import re
-from typing import List, Union
-from pydantic import AnyHttpUrl, validator
+from typing import List
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Startup Operating System"
     API_V1_STR: str = "/api/v1"
-    
-    # BACKEND_CORS_ORIGINS is a JSON-formatted list of origins
-    # e.g: '["http://localhost", "http://localhost:3000"]'
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = ["http://localhost:3000"]
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+    # A comma-separated list of origins, e.g: "http://localhost:3000,https://your-app.vercel.app"
+    # Kept as a plain string (not List[AnyHttpUrl]): pydantic-settings 2.2.1 tries to
+    # JSON-decode any env var bound to a list-typed field before any validator runs,
+    # which raises SettingsError for a plain comma/URL string and crashes the app at
+    # import time. Parsing it ourselves in cors_origins sidesteps that entirely.
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000"
+
+    @property
+    def cors_origins(self) -> List[str]:
+        return [origin.strip().rstrip("/") for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
 
     # Auth (Clerk)
     CLERK_ISSUER: str | None = None
