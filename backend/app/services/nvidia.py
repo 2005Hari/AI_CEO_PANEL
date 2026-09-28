@@ -46,7 +46,13 @@ class NVIDIAInferenceService:
             "model": model or self.model_name,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
+            # Some NVIDIA-hosted models (e.g. the Nemotron family) are reasoning
+            # models that otherwise narrate their full chain-of-thought as plain
+            # text in `content` before any real answer, which both breaks our
+            # JSON-parsing prompts and can exhaust max_tokens before an answer is
+            # even reached. Verified harmless no-op on non-reasoning models.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
 
         retries = 3

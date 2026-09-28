@@ -49,7 +49,9 @@ class Settings(BaseSettings):
     # LLM
     GEMINI_API_KEY: str | None = None
     NVIDIA_API_KEY: str | None = None
-    NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
+    # meta/llama-3.1-8b-instruct reached end-of-life on NVIDIA's hosted API
+    # (2026-08-26) and now returns HTTP 410 — verified against live traffic.
+    NVIDIA_MODEL: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
     
     class Config:
         case_sensitive = True
