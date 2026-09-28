@@ -15,14 +15,25 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
 
-# Initialize the LLM using NVIDIA's endpoint
-llm = ChatOpenAI(
-    model=settings.NVIDIA_MODEL,
-    api_key=settings.NVIDIA_API_KEY,
-    base_url="https://integrate.api.nvidia.com/v1",
-    temperature=0.3,
-    model_kwargs={"parallel_tool_calls": False}
-)
+_llm = None
+
+
+def get_llm():
+    """Lazily construct the NVIDIA-backed LLM client.
+
+    Deferred so that a missing NVIDIA_API_KEY only breaks task execution
+    (which needs it) rather than crashing the whole app at startup.
+    """
+    global _llm
+    if _llm is None:
+        _llm = ChatOpenAI(
+            model=settings.NVIDIA_MODEL,
+            api_key=settings.NVIDIA_API_KEY,
+            base_url="https://integrate.api.nvidia.com/v1",
+            temperature=0.3,
+            model_kwargs={"parallel_tool_calls": False}
+        )
+    return _llm
 
 def build_project_tools(project_id: str):
     @tool
@@ -121,7 +132,7 @@ async def process_queue_item(item_id: str):
 
         # Instantiate agent with true system persona
         agent_executor = create_react_agent(
-            llm,
+            get_llm(),
             agent_tools,
             prompt=persona_prompt
         )
