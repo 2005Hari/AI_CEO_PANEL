@@ -1,0 +1,43 @@
+databases:
+  - name: ai-ceo-panel-db
+    plan: starter
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: ai-ceo-panel-backend
+    runtime: python
+    rootDir: backend
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthcheck
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: USE_SQLITE
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-ceo-panel-db
+          property: connectionString
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: DEV_MOCK_USER_ENABLED
+        value: "false"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.1-70b-instruct
+      - key: CLERK_ISSUER
+        sync: false
+      - key: CLERK_JWKS_URL
+        sync: false
+      - key: CLERK_AUDIENCE
+        sync: false
+      # Comma-separated list, e.g. https://your-app.vercel.app
+      - key: BACKEND_CORS_ORIGINS
+        sync: false

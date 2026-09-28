@@ -9,6 +9,7 @@ langsmith>=0.1.81
 langchain-google-genai>=1.0.0
 langgraph>=0.1.0
 SQLAlchemy>=2.0.31
+greenlet>=3.0.0
 alembic==1.13.1
 asyncpg>=0.31.0
 psycopg[binary]==3.2.13

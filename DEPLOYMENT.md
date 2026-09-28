@@ -15,6 +15,59 @@ This guide covers deploying the AI CEO Panel MVP to production. We'll cover mult
 - [ ] DNS records prepared
 - [ ] API rate limits configured
 
+## Option 0: Render (Backend) + Vercel (Frontend) — Recommended
+
+This is the fastest path to a production deployment and matches the `render.yaml` Blueprint checked into the repo root.
+
+### Backend on Render
+
+1. **Push this repo to GitHub** (already done if you're reading this from the repo).
+
+2. **Create the Blueprint**
+   - In the Render dashboard: **New → Blueprint**.
+   - Select this repository. Render reads `render.yaml` from the repo root and proposes:
+     - `ai-ceo-panel-db` — a managed PostgreSQL instance (pgvector is supported natively; the `001_initial_postgres_schema` migration runs `CREATE EXTENSION IF NOT EXISTS vector`).
+     - `ai-ceo-panel-backend` — a Python web service with `rootDir: backend`, `buildCommand: pip install -r requirements.txt`, and `startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+   - Click **Apply** to provision both.
+
+3. **Fill in the secret env vars** Render leaves blank (marked `sync: false` in `render.yaml`) on the `ai-ceo-panel-backend` service:
+   - `GEMINI_API_KEY`
+   - `NVIDIA_API_KEY`
+   - `CLERK_ISSUER` (e.g. `https://your-instance.clerk.accounts.dev`)
+   - `CLERK_JWKS_URL` (e.g. `https://your-instance.clerk.accounts.dev/.well-known/jwks.json`)
+   - `CLERK_AUDIENCE` (if your Clerk instance requires one)
+   - `BACKEND_CORS_ORIGINS` — set this **after** the Vercel deploy below, to your Vercel URL, e.g. `https://your-app.vercel.app` (comma-separate multiple origins)
+
+   `DATABASE_URL` is wired automatically from the `ai-ceo-panel-db` database via `fromDatabase`; `app/core/config.py` accepts either that single connection string or the discrete `POSTGRES_*` vars.
+
+4. **Deploy and verify**
+   - Render builds and starts the service. On boot, the app's lifespan hook runs `alembic upgrade head` against the managed Postgres instance automatically — no manual migration step needed.
+   - Confirm health: `curl https://ai-ceo-panel-backend.onrender.com/healthcheck` → `{"status": "ok"}`.
+   - Note the service URL; you'll need it for the frontend's `NEXT_PUBLIC_API_BASE_URL`.
+
+### Frontend on Vercel
+
+1. **Import the project**
+   - In the Vercel dashboard: **Add New → Project**, select this repository.
+   - Set **Root Directory** to `frontend` (this is a monorepo; Vercel auto-detects the Next.js framework once the root is set).
+
+2. **Set environment variables** (Project Settings → Environment Variables):
+   - `NEXT_PUBLIC_API_BASE_URL` = `https://<your-render-service>.onrender.com/api/v1`
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` = your Clerk publishable key
+   - `CLERK_SECRET_KEY` = your Clerk secret key
+
+3. **Deploy**. Vercel builds with `npm run build` and serves via `next start` automatically.
+
+4. **Close the loop on CORS**: once you have the Vercel URL (e.g. `https://your-app.vercel.app`), go back to the Render service and set `BACKEND_CORS_ORIGINS` to that URL, then redeploy the backend so `CORSMiddleware` allows requests from the frontend.
+
+5. **Custom domains** (optional): add your domain in Vercel for the frontend and in Render for the backend, then update `NEXT_PUBLIC_API_BASE_URL` and `BACKEND_CORS_ORIGINS` to match.
+
+### Notes
+
+- Render's free/starter Postgres plans sleep or have connection limits — use a paid plan for anything beyond testing.
+- The web service on Render's free tier spins down on idle, which adds cold-start latency; upgrade the plan in `render.yaml` (`plan: starter` → a paid plan) for always-on behavior.
+- `AUTH_REQUIRED=true` and `DEV_MOCK_USER_ENABLED=false` are set by default in `render.yaml` — production traffic always goes through Clerk JWT validation.
+
 ## Option 1: Docker Compose + Cloud VM (Recommended for MVP)
 
 ### Prerequisites
@@ -237,7 +290,7 @@ This guide covers deploying the AI CEO Panel MVP to production. We'll cover mult
 
 1. **Backend health**
    ```bash
-   curl https://api.yourdomain.com/health
+   curl https://api.yourdomain.com/healthcheck
    ```
 
 2. **Frontend load**
@@ -247,8 +300,10 @@ This guide covers deploying the AI CEO Panel MVP to production. We'll cover mult
 
 3. **Database connectivity**
    ```bash
-   # Via backend health check which queries DB
-   curl https://api.yourdomain.com/health
+   # The backend fails to start (and therefore fails its health check) if it
+   # cannot run migrations against the database, so a passing /healthcheck
+   # implies DB connectivity.
+   curl https://api.yourdomain.com/healthcheck
    ```
 
 ### Monitoring
