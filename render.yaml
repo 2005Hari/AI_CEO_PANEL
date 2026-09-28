@@ -1,6 +1,6 @@
 databases:
   - name: ai-ceo-panel-db
-    plan: starter
+    plan: free
     postgresMajorVersion: "16"
 
 services:
@@ -8,7 +8,7 @@ services:
     name: ai-ceo-panel-backend
     runtime: python
     rootDir: backend
-    plan: starter
+    plan: free
     region: oregon
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
