@@ -17,6 +17,11 @@ ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+# Without these, Clerk's auth.protect() falls back to its generic hosted
+# Account Portal instead of this app's own /sign-in, /sign-up pages —
+# confirmed against real live traffic. Fixed values, not per-environment.
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 # CLERK_SECRET_KEY is server-only and read at runtime (see the "runner" stage
 # below) — but the build itself still needs *a* validly-formatted key present
 # or Clerk's build-time checks fail; it is not baked into the output.

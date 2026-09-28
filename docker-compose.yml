@@ -28,7 +28,8 @@ services:
       POSTGRES_PASSWORD: aios_dev_password
       POSTGRES_DB: ai_startup_os
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
-      NVIDIA_MODEL: ${NVIDIA_MODEL:-meta/llama-3.1-70b-instruct}
+      # meta/llama-3.1-* models reached end-of-life on NVIDIA's hosted API (2026-08-26).
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-nvidia/nemotron-3.5-lightning-30b-a3b}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CLERK_ISSUER: ${CLERK_ISSUER:-}
       CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
